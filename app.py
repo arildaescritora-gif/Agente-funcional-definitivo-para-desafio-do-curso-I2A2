@@ -72,7 +72,7 @@ def load_and_extract_data(uploaded_file_bytes, filename):
         return {"status": "error", "message": f"Erro ao processar arquivo: {e}"}
 
 # -----------------------------
-# Ferramentas / Tools do agente - CORRIGIDAS
+# Ferramentas / Tools do agente
 # -----------------------------
 
 def show_descriptive_stats(*args):
@@ -103,7 +103,8 @@ def show_descriptive_stats(*args):
         # Valores mais frequentes
         freq_output = "\n\n**Valores mais frequentes (top 3 por coluna):**\n"
         for col in df.columns:
-            if df[col].dtype == 'object' or df[col].nunique() < 20:
+            # Usar apenas object ou colunas com baixa cardinalidade para frequencia
+            if df[col].dtype == 'object' or df[col].nunique() < 20: 
                 top_values = df[col].value_counts().head(3)
                 freq_output += f"\n**{col}**: " + ", ".join([f"'{k}': {v}" for k, v in top_values.items()])
             else:
@@ -116,7 +117,7 @@ def show_descriptive_stats(*args):
         return {"status": "error", "message": f"Erro ao gerar estatísticas: {e}"}
 
 def generate_histogram(column: str, *args):
-    """Gera histograma Plotly para coluna numérica"""
+    """Gera histograma Plotly para coluna numérica. Útil para verificar a distribuição e outliers."""
     df = st.session_state.df
     if df is None:
         return {"status": "error", "message": "Nenhum DataFrame carregado."}
@@ -131,17 +132,17 @@ def generate_histogram(column: str, *args):
         # Plotly
         fig = px.histogram(df, x=col, title=f"Histograma de {col}")
         
-        # Matplotlib fallback
+        # Matplotlib fallback (Mantido para execução, mas não persistirá no histórico)
         fig_mpl, ax = plt.subplots(figsize=(10, 6))
         ax.hist(df[col].dropna(), bins=30, alpha=0.7)
         ax.set_title(f"Histograma de {col}")
         ax.set_xlabel(col)
         ax.set_ylabel("Frequência")
-        plt.tight_layout()
+        plt.close(fig_mpl) # Fechar Matplotlib para liberar memória após exibição imediata
 
         return {
             "status": "success", 
-            "message": f"Histograma gerado para '{col}'.",
+            "message": f"Histograma gerado para '{col}'. Analise a distribuição e possíveis outliers.",
             "plotly_figure": fig,
             "matplotlib_figure": fig_mpl
         }
@@ -149,7 +150,7 @@ def generate_histogram(column: str, *args):
         return {"status": "error", "message": f"Erro ao gerar histograma: {e}"}
 
 def generate_correlation_heatmap(*args):
-    """Gera mapa de calor da correlação entre colunas numéricas"""
+    """Gera mapa de calor da correlação entre colunas numéricas. Útil para identificar relações."""
     df = st.session_state.df
     if df is None:
         return {"status": "error", "message": "Nenhum DataFrame carregado."}
@@ -161,10 +162,10 @@ def generate_correlation_heatmap(*args):
     try:
         corr = df[numeric_cols].corr()
         fig = px.imshow(corr, text_auto='.2f', aspect='auto', 
-                       title='Matriz de Correlação', color_continuous_scale='RdBu_r')
+                        title='Matriz de Correlação', color_continuous_scale='RdBu_r')
         fig.update_xaxes(side='top')
 
-        # Matplotlib fallback
+        # Matplotlib fallback (Mantido para execução, mas não persistirá no histórico)
         fig_mpl, ax = plt.subplots(figsize=(12, 8))
         im = ax.imshow(corr, cmap='RdBu_r', vmin=-1, vmax=1)
         ax.set_xticks(range(len(numeric_cols)))
@@ -173,18 +174,18 @@ def generate_correlation_heatmap(*args):
         ax.set_yticklabels(numeric_cols)
         ax.set_title('Matriz de Correlação')
         
-        # Adicionar valores na matriz
         for i in range(len(numeric_cols)):
             for j in range(len(numeric_cols)):
                 text = ax.text(j, i, f'{corr.iloc[i, j]:.2f}',
-                              ha="center", va="center", color="black", fontsize=8)
+                                ha="center", va="center", color="black", fontsize=8)
         
         plt.colorbar(im, ax=ax)
         plt.tight_layout()
+        plt.close(fig_mpl) # Fechar Matplotlib para liberar memória após exibição imediata
 
         return {
             "status": "success", 
-            "message": "Mapa de calor da correlação gerado.",
+            "message": "Mapa de calor da correlação gerado. Procure por valores próximos a 1 (positiva) ou -1 (negativa).",
             "plotly_figure": fig,
             "matplotlib_figure": fig_mpl
         }
@@ -192,7 +193,7 @@ def generate_correlation_heatmap(*args):
         return {"status": "error", "message": f"Erro ao gerar mapa de calor: {e}"}
 
 def generate_scatter_plot(columns_str: str, *args):
-    """Gera scatter Plotly entre duas colunas"""
+    """Gera scatter Plotly entre duas colunas (X e Y), separadas por vírgula ou espaço. Útil para identificar a relação entre pares de variáveis."""
     df = st.session_state.df
     if df is None:
         return {"status": "error", "message": "Nenhum DataFrame carregado."}
@@ -209,13 +210,14 @@ def generate_scatter_plot(columns_str: str, *args):
     try:
         fig = px.scatter(df, x=x_col, y=y_col, title=f"{x_col} vs {y_col}")
 
-        # Matplotlib fallback
+        # Matplotlib fallback (Mantido para execução, mas não persistirá no histórico)
         fig_mpl, ax = plt.subplots(figsize=(10, 6))
         ax.scatter(df[x_col], df[y_col], alpha=0.6)
         ax.set_xlabel(x_col)
         ax.set_ylabel(y_col)
         ax.set_title(f"{x_col} vs {y_col}")
         plt.tight_layout()
+        plt.close(fig_mpl) # Fechar Matplotlib para liberar memória após exibição imediata
 
         return {
             "status": "success", 
@@ -227,7 +229,7 @@ def generate_scatter_plot(columns_str: str, *args):
         return {"status": "error", "message": f"Erro ao gerar scatter plot: {e}"}
 
 def detect_outliers_isolation_forest(*args):
-    """Detecta outliers com IsolationForest nas colunas v* + time + amount"""
+    """Detecta outliers com IsolationForest nas colunas v* + time + amount (tipicamente usadas em datasets de fraude)"""
     try:
         df = st.session_state.df
         if df is None:
@@ -247,7 +249,7 @@ def detect_outliers_isolation_forest(*args):
         out_idx = X.index[labels == -1]
         sample = df.loc[out_idx].head(10)
         
-        msg = f"Foram detectados {len(out_idx)} outliers (amostra de 10 linhas):\n\n"
+        msg = f"Foram detectados **{len(out_idx)} outliers** (contaminação=1%). Uma amostra de 10 linhas outliers:\n\n"
         msg += sample.to_markdown(tablefmt="pipe")
         
         return {"status": "success", "message": msg}
@@ -255,9 +257,11 @@ def detect_outliers_isolation_forest(*args):
         return {"status": "error", "message": f"Erro: {e}"}
 
 def find_clusters_kmeans(n_clusters: str, *args):
-    """Agrupamento KMeans nas colunas v* + time + amount"""
+    """Agrupamento KMeans nas colunas v* + time + amount. Deve ser fornecido o número de clusters (ex: 3)"""
     try:
         n = int(n_clusters)
+        if n < 2 or n > 10:
+             return {"status": "error", "message": "Número de clusters deve ser entre 2 e 10."}
     except Exception:
         return {"status": "error", "message": "Número de clusters inválido."}
     
@@ -279,14 +283,18 @@ def find_clusters_kmeans(n_clusters: str, *args):
         
         df_copy = df.copy()
         df_copy['cluster'] = labels
-        summary = df_copy.groupby('cluster').agg({
-            'amount': ['mean','min','max'], 
-            'time': ['min','max']
-        }).to_markdown(tablefmt='pipe')
+        
+        # Gera uma visualização de como os clusters se separam na variável 'amount'
+        summary = df_copy.groupby('cluster').agg(
+            Count=('cluster','size'),
+            Avg_Amount=('amount', 'mean'), 
+            Min_Amount=('amount','min'),
+            Max_Amount=('amount','max')
+        ).to_markdown(tablefmt='pipe')
         
         return {
             "status": "success", 
-            "message": f"KMeans executado com {n} clusters.\n\n{summary}"
+            "message": f"KMeans executado com {n} clusters. O resumo abaixo mostra a contagem e as estatísticas de 'amount' por cluster:\n\n{summary}"
         }
     except Exception as e:
         return {"status": "error", "message": f"Erro no K-Means: {e}"}
@@ -306,8 +314,9 @@ tool_functions = [
 # -----------------------------
 
 def initialize_agent(tools_list, system_prompt_text):
+    # CORREÇÃO 1: Mudar para um nome de modelo Gemini mais estável (gemini-2.5-flash)
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",  # Usando flash para melhor performance
+        model="gemini-2.5-flash", # Modelo Gemini-2.5-Flash
         google_api_key=google_api_key, 
         temperature=0.0
     )
@@ -325,11 +334,17 @@ def initialize_agent(tools_list, system_prompt_text):
         return_messages=True
     )
     
-    agent = create_tool_calling_agent(llm, tools_list, prompt)
+    # Cria tools a partir das funções
+    tools_with_df = [
+        Tool(name=fn.__name__, description=fn.__doc__, func=fn) 
+        for fn in tools_list
+    ]
+
+    agent = create_tool_calling_agent(llm, tools_with_df, prompt)
 
     agent_executor = AgentExecutor(
         agent=agent, 
-        tools=tools_list, 
+        tools=tools_with_df, 
         verbose=False, 
         memory=memory, 
         max_iterations=10,
@@ -338,37 +353,30 @@ def initialize_agent(tools_list, system_prompt_text):
     return agent_executor
 
 # -----------------------------
-# Interface do Streamlit - CORRIGIDA
+# Interface do Streamlit
 # -----------------------------
 with st.sidebar:
     st.header("📁 Upload de dados")
     uploaded_file = st.file_uploader("CSV ou ZIP (com CSV)", type=["csv","zip"])
 
     if st.button("🚀 Carregar e Inicializar Agente") and uploaded_file is not None:
+        st.session_state.messages = [] # Limpa o histórico ao carregar novo arquivo
         with st.spinner("Carregando arquivo..."):
             data = load_and_extract_data(uploaded_file.getvalue(), uploaded_file.name)
         
         if data['status'] == 'success':
             st.session_state.df = data['df']
 
-            # Cria tools
-            tools_with_df = [
-                Tool(
-                    name=fn.__name__, 
-                    description=fn.__doc__, 
-                    func=fn
-                ) for fn in tool_functions
-            ]
-
             system_prompt = (
-                "Você é um agente de EDA especializado. SEMPRE use as ferramentas disponíveis para responder às perguntas. "
-                "Quando o usuário pedir gráficos ou análises, execute a ferramenta adequada. "
+                "Você é um agente de EDA (Análise Exploratória de Dados) especializado. "
+                "SEMPRE use as ferramentas disponíveis para responder às perguntas e gerar gráficos. "
+                "Quando o usuário pedir gráficos ou análises, execute a ferramenta adequada e forneça insights. "
                 "Responda em Português com insights claros. "
-                "As colunas estão em minúsculas: v1-v28, time, amount, class."
+                "As colunas do DataFrame carregado são: " + ", ".join(st.session_state.df.columns)
             )
             
             try:
-                st.session_state.agent_executor = initialize_agent(tools_with_df, system_prompt)
+                st.session_state.agent_executor = initialize_agent(tool_functions, system_prompt)
                 st.success("✅ Agente inicializado! Faça suas perguntas no chat.")
             except Exception as e:
                 st.error(f"Erro ao inicializar agente: {e}")
@@ -384,16 +392,17 @@ with st.sidebar:
 for msg in st.session_state.messages:
     with st.chat_message(msg['role']):
         # Se a mensagem contém figuras, exibe-as
+        # Correção 2: Renderizar Plotly
         if 'plotly_figure' in msg:
             st.plotly_chart(msg['plotly_figure'], use_container_width=True)
-        if 'matplotlib_figure' in msg:
-            st.pyplot(msg['matplotlib_figure'])
+        # Matplotlib NÃO é persistido (ver Correção 2), apenas Plotly
         if 'message' in msg:
             st.markdown(msg['message'])
 
 # Input do usuário
 prompt = st.chat_input("Pergunte algo sobre os dados...")
 if prompt:
+    # Adicionar prompt do usuário ao histórico
     st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.chat_message("user"):
@@ -405,35 +414,41 @@ if prompt:
     else:
         with st.chat_message("assistant"):
             try:
+                # O invoke agora retorna um objeto que pode conter a saída do LLM ou da ferramenta
                 full_response = st.session_state.agent_executor.invoke({"input": prompt})
                 response_content = full_response.get('output', '')
 
                 # Preparar resposta para salvar no histórico
                 assistant_response = {"role": "assistant"}
-
-                # Processar resposta baseada no tipo
+                
+                # O LangChain Tool Calling Agent (Executor) deve retornar a resposta da ferramenta se ela for chamada.
+                # A saída da ferramenta é passada para o LLM para geração de uma resposta final.
+                # A forma como o LangChain retorna figuras varia. O código abaixo tenta extrair a figura da resposta final se ela for uma ToolResponse formatada.
+                
+                # Tenta extrair diretamente se o output for uma resposta da ferramenta (dicionário)
                 if isinstance(response_content, dict) and response_content.get('status') in ['success', 'error']:
                     
-                    # Adicionar gráficos Plotly se existirem
+                    # Adicionar gráficos Plotly (interativos e persistentes)
                     if 'plotly_figure' in response_content:
                         st.plotly_chart(response_content['plotly_figure'], use_container_width=True)
+                        # Salva a figura Plotly no histórico (serializável pelo Streamlit)
                         assistant_response['plotly_figure'] = response_content['plotly_figure']
                     
-                    # Adicionar gráficos Matplotlib se existirem
+                    # Adicionar gráficos Matplotlib (apenas exibição imediata, não persistirá)
                     if 'matplotlib_figure' in response_content:
                         st.pyplot(response_content['matplotlib_figure'])
-                        assistant_response['matplotlib_figure'] = response_content['matplotlib_figure']
                     
                     # Adicionar mensagem de texto
-                    if 'message' in response_content:
-                        if response_content.get('status') == 'error':
-                            st.error(response_content['message'])
-                        else:
-                            st.markdown(response_content['message'])
-                        assistant_response['message'] = response_content['message']
-                        
+                    message_text = response_content.get('message', 'Erro desconhecido.')
+                    if response_content.get('status') == 'error':
+                        st.error(message_text)
+                    else:
+                        st.markdown(message_text)
+                    
+                    assistant_response['message'] = message_text
+                
                 else:
-                    # Resposta direta do LLM
+                    # Resposta direta do LLM (após Tool call ou se nenhuma ferramenta foi usada)
                     st.markdown(str(response_content))
                     assistant_response['message'] = str(response_content)
 
@@ -462,7 +477,7 @@ with st.expander("💡 Exemplos de perguntas para testar"):
     - *Gere mapa de calor da correlação*
     - *Existem padrões ou tendências temporais?*
     - *Quais os valores mais frequentes?*
-    - *Existem agrupamentos nos dados?* (peça KMeans com 2, 3, 4 clusters)
+    - *Existem agrupamentos nos dados?* (peça KMeans com 3 clusters)
     - *Detecte outliers nos dados*
     - *Como as variáveis se relacionam?* (scatter plots)
     - *Gere um scatter plot entre time e amount*
