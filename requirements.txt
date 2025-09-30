@@ -1,0 +1,14 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+tabulate
+langchain>=0.2
+langchain-core>=0.2
+langchain-google-genai>=1.0
+plotly
+
+
+
