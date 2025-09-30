@@ -1,14 +1,14 @@
-streamlit
-pandas
+streamlit>=1.36.0
 numpy
+pandas
 matplotlib
 seaborn
+plotly
 scikit-learn
 tabulate
-langchain>=0.2
-langchain-core>=0.2
-langchain-google-genai>=1.0
-plotly
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-google-genai>=0.0.6
 
 
 
